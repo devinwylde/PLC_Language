@@ -1,5 +1,6 @@
 package plc.project;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -27,7 +28,15 @@ public final class Lexer {
      * whitespace where appropriate.
      */
     public List<Token> lex() {
-        throw new UnsupportedOperationException(); //TODO
+        List<Token> tokens = new ArrayList<>();
+
+        while (chars.has(0)) {
+            while (match("[ \b\n\r\t]"));
+            chars.skip();
+            if (chars.has(0)) tokens.add(lexToken());
+        }
+
+        return tokens;
     }
 
     /**
@@ -39,31 +48,74 @@ public final class Lexer {
      * by {@link #lex()}
      */
     public Token lexToken() {
-        throw new UnsupportedOperationException(); //TODO
+        if (peek("[A-Za-z@]")) return lexIdentifier();
+        if (peek("[0-9]") || (peek("\\-", "[0-9]"))) return lexNumber();
+        if (peek("\"")) return lexString();
+        if (peek("'")) return lexCharacter();
+        return lexOperator();
     }
 
     public Token lexIdentifier() {
-        throw new UnsupportedOperationException(); //TODO
+        chars.advance();
+        while (match("[A-Za-z0-9_-]"));
+        return chars.emit(Token.Type.IDENTIFIER);
     }
 
     public Token lexNumber() {
-        throw new UnsupportedOperationException(); //TODO
+        boolean decimal = false;
+
+        if (match("0")) {
+            if (match("\\.")) decimal = true;
+            else return chars.emit(Token.Type.INTEGER);
+        } else chars.advance();
+
+        do {
+            if (peek("\\.", "[0-9]") && !decimal) {
+                chars.advance();
+                decimal = true;
+            }
+        } while (match("[0-9]"));
+
+        return chars.emit(decimal ? Token.Type.DECIMAL : Token.Type.INTEGER);
     }
 
     public Token lexCharacter() {
-        throw new UnsupportedOperationException(); //TODO
+        chars.advance();
+        if (peek("\\\\")) lexEscape();
+        else if (peek("'")) throw new ParseException("Invalid empty character.", chars.index);
+        else chars.advance();
+
+        if (!match("'")) throw new ParseException("Unterminated character.", chars.index);
+
+        return chars.emit(Token.Type.CHARACTER);
     }
 
     public Token lexString() {
-        throw new UnsupportedOperationException(); //TODO
+        chars.advance();
+
+        while (chars.has(0) && !peek("\"")) {
+            if (peek("\\\\")) lexEscape();
+            chars.advance();
+        }
+
+        if (!chars.has(0)) throw new ParseException("Unterminated string.", chars.index);
+        chars.advance();
+
+        return chars.emit(Token.Type.STRING);
     }
 
     public void lexEscape() {
-        throw new UnsupportedOperationException(); //TODO
+        chars.advance();
+        if (!match("[bnrt'\"\\\\]")) throw new ParseException("Invalid escape sequence.", chars.index);
     }
 
     public Token lexOperator() {
-        throw new UnsupportedOperationException(); //TODO
+        if (match("[!=]")) match("=");
+        else if (match("&")) match("&");
+        else if (match("|")) match("|");
+        else chars.advance();
+
+        return chars.emit(Token.Type.OPERATOR);
     }
 
     /**
@@ -72,7 +124,13 @@ public final class Lexer {
      * return true if the next characters are {@code 'a', 'b', 'c'}.
      */
     public boolean peek(String... patterns) {
-        throw new UnsupportedOperationException(); //TODO (in Lecture)
+        for (int i = 0; i < patterns.length; i++) {
+            if (!chars.has(i) || !String.valueOf(chars.get(i)).matches(patterns[i])) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -81,7 +139,15 @@ public final class Lexer {
      * true. Hint - it's easiest to have this method simply call peek.
      */
     public boolean match(String... patterns) {
-        throw new UnsupportedOperationException(); //TODO (in Lecture)
+        boolean peek = peek(patterns);
+
+        if (peek) {
+            for (int i = 0; i < patterns.length; i++) {
+                chars.advance();
+            }
+        }
+
+        return peek;
     }
 
     /**
